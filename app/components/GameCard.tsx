@@ -1,22 +1,53 @@
+/* eslint-disable react-hooks/purity */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+"use client";
 
-import { format } from 'date-fns-tz'
-import LineMovementChart from './LineMovementChart'
+import { format } from "date-fns-tz";
+import LineMovementChart from "./LineMovementChart";
 
 interface Props {
-  game: any
-  isSelected: boolean
-  chartData: any[]
-  onClick: () => void
+  game: any;
+  isSelected: boolean;
+  chartData: any[];
+  onClick: () => void;
 }
 
-export default function GameCard({ game, isSelected, chartData, onClick }: Props) {
+export default function GameCard({
+  game,
+  isSelected,
+  chartData,
+  onClick,
+}: Props) {
+  const now = Date.now();
+
+  const getOddsAge = (lastUpdated: string) => {
+    const mins = Math.floor((now - new Date(lastUpdated).getTime()) / 60000);
+    if (mins < 1) return "Just updated";
+    if (mins < 60) return `Updated ${mins} min${mins === 1 ? "" : "s"} ago`;
+    const hours = Math.floor(mins / 60);
+    return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  };
+
+  const getBestBookmaker = () => {
+    let bestBookmaker = "";
+    let bestTotal = 0;
+
+    Object.entries(game.bookmakers).forEach(([bookmaker, odds]: any) => {
+      const total = odds.homeOdds + odds.awayOdds;
+      if (total > bestTotal) {
+        bestTotal = total;
+        bestBookmaker = bookmaker;
+      }
+    });
+
+    return bestBookmaker;
+  };
+
   return (
     <div
       onClick={onClick}
       className={`bg-gray-900 rounded-xl border border-gray-800 p-6 mb-4 cursor-pointer transition-all ${
-        isSelected ? 'border-green-700' : 'hover:border-gray-600'
+        isSelected ? "border-green-700" : "hover:border-gray-600"
       }`}
     >
       {/* Game Header */}
@@ -26,18 +57,31 @@ export default function GameCard({ game, isSelected, chartData, onClick }: Props
             {game.homeTeam} vs {game.awayTeam}
           </p>
           <p className="text-gray-400 text-sm mt-1">
-            {format(new Date(game.commenceTime), 'EEE d MMM, h:mm a zzz', {
-              timeZone: 'Australia/Sydney',
+            {format(new Date(game.commenceTime), "EEE d MMM, h:mm a zzz", {
+              timeZone: "Australia/Sydney",
             })}
           </p>
+          <p className="text-gray-600 text-xs mt-0.5">
+            {getOddsAge(game.lastUpdated)}
+          </p>
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-yellow-400 text-xs">🏆</span>
+            <span className="text-yellow-400 text-xs font-medium">
+              Best value: {getBestBookmaker()}
+            </span>
+          </div>
         </div>
         <div className="flex gap-3">
           <div className="bg-green-900/40 border border-green-700 rounded-lg px-4 py-2 text-center">
-            <p className="text-xs text-gray-400">{game.homeTeam.split(' ').pop()}</p>
+            <p className="text-xs text-gray-400">
+              {game.homeTeam.split(" ").pop()}
+            </p>
             <p className="text-green-400 font-bold">{game.bestHome}</p>
           </div>
           <div className="bg-green-900/40 border border-green-700 rounded-lg px-4 py-2 text-center">
-            <p className="text-xs text-gray-400">{game.awayTeam.split(' ').pop()}</p>
+            <p className="text-xs text-gray-400">
+              {game.awayTeam.split(" ").pop()}
+            </p>
             <p className="text-green-400 font-bold">{game.bestAway}</p>
           </div>
         </div>
@@ -52,11 +96,15 @@ export default function GameCard({ game, isSelected, chartData, onClick }: Props
           >
             <p className="text-gray-400 text-sm w-32 truncate">{bookmaker}</p>
             <div className="flex gap-4">
-              <span className={`font-mono text-sm font-semibold ${odds.homeOdds === game.bestHome ? 'text-green-400' : 'text-white'}`}>
+              <span
+                className={`font-mono text-sm font-semibold ${odds.homeOdds === game.bestHome ? "text-green-400" : "text-white"}`}
+              >
                 {odds.homeOdds.toFixed(2)}
               </span>
               <span className="text-gray-600">|</span>
-              <span className={`font-mono text-sm font-semibold ${odds.awayOdds === game.bestAway ? 'text-green-400' : 'text-white'}`}>
+              <span
+                className={`font-mono text-sm font-semibold ${odds.awayOdds === game.bestAway ? "text-green-400" : "text-white"}`}
+              >
                 {odds.awayOdds.toFixed(2)}
               </span>
             </div>
@@ -73,5 +121,5 @@ export default function GameCard({ game, isSelected, chartData, onClick }: Props
         />
       )}
     </div>
-  )
+  );
 }
