@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model OddsSnapshot {
+  id            Int      @id @default(autoincrement())
+  sport         String
+  homeTeam      String
+  awayTeam      String
+  commenceTime  DateTime
+  bookmaker     String
+  market        String
+  homeOdds      Float
+  awayOdds      Float
+  drawOdds      Float?
+  fetchedAt     DateTime @default(now())
+}
