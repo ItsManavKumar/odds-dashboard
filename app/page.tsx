@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from "react";
 import GameCard from "./components/GameCard";
-import Navbar from './components/Navbar';
+import Navbar from "./components/Navbar";
+import SearchBar from "./components/SearchBar";
 
 const SPORTS = [
   { key: "aussierules_afl", label: "AFL" },
@@ -21,11 +22,13 @@ export default function Home() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [chartData, setChartData] = useState([]);
   const [selectedSport, setSelectedSport] = useState("aussierules_afl");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setLoading(true);
     setSelectedGame(null);
     setChartData([]);
+    setSearch("");
     fetch(`/api/markets?sport=${selectedSport}`)
       .then((r) => r.json())
       .then((d) => {
@@ -36,21 +39,26 @@ export default function Home() {
 
   const handleGameClick = (game: any) => {
     const gameKey = `${game.homeTeam}-${game.awayTeam}`;
-
     if (selectedGame === gameKey) {
       setSelectedGame(null);
       setChartData([]);
       return;
     }
-
     setSelectedGame(gameKey);
-
     fetch(
       `/api/history?home=${encodeURIComponent(game.homeTeam)}&away=${encodeURIComponent(game.awayTeam)}`,
     )
       .then((r) => r.json())
       .then((d) => setChartData(d.data));
   };
+
+  const filteredGames = search.trim()
+    ? games.filter((game: any) =>
+        `${game.homeTeam} ${game.awayTeam}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+    : games;
 
   return (
     <main className="min-h-screen bg-gray-950 text-white">
@@ -62,7 +70,7 @@ export default function Home() {
           Sports Odds Dashboard
         </h1>
 
-        {/* Sport Tabs — full-width horizontal scroll, no wrapping */}
+        {/* Sport Tabs */}
         <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1 scrollbar-none">
           {SPORTS.map((sport) => (
             <button
@@ -79,8 +87,8 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Stats Bar — stacks to 3-col on mobile, stays 3-col on sm+ */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+        {/* Stats Bar */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <div className="bg-gray-900 rounded-xl p-3 sm:p-4 border border-gray-800">
             <p className="text-gray-400 text-xs sm:text-sm">Markets</p>
             <p className="text-xl sm:text-2xl font-bold mt-1">{games.length}</p>
@@ -101,17 +109,23 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Search */}
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search teams..."
+        />
+
         {/* Games */}
         {loading ? (
           <p className="text-gray-400 text-sm">Loading markets...</p>
-        ) : games.length === 0 ? (
+        ) : filteredGames.length === 0 ? (
           <p className="text-gray-400 text-sm">
-            No markets available for this sport yet. Check back after the next
-            data fetch.
+            {search ? `No games found for "${search}"` : "No markets available for this sport yet."}
           </p>
         ) : (
           <div className="space-y-3 sm:space-y-4">
-            {games.map((game: any, i) => (
+            {filteredGames.map((game: any, i) => (
               <GameCard
                 key={i}
                 game={game}
