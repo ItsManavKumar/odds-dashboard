@@ -11,8 +11,14 @@ export async function GET(request: Request) {
   const sport = searchParams.get('sport') || 'aussierules_afl'
 
   try {
+    // Show games from the last 7 days so the dashboard isn't empty while API quota is reset
+    const gameCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
     const snapshots = await prisma.oddsSnapshot.findMany({
-      where: { sport },
+      where: {
+        sport,
+        commenceTime: { gt: gameCutoff },
+      },
       orderBy: { fetchedAt: 'desc' },
     })
 
@@ -36,6 +42,7 @@ export async function GET(request: Request) {
         gamesMap[gameKey].bookmakers[snap.bookmaker] = {
           homeOdds: snap.homeOdds,
           awayOdds: snap.awayOdds,
+          drawOdds: snap.drawOdds ?? null,
         }
       }
     }
@@ -49,7 +56,13 @@ export async function GET(request: Request) {
 
     games.sort((a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime())
 
-    return NextResponse.json({ success: true, data: games })
+    // Warn only when there ARE active games but the fetch data is old (cron failure)
+    // Threshold is 5 hours to account for the 3-hour cron interval + buffer
+    const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000)
+    const mostRecentFetch = snapshots[0]?.fetchedAt
+    const staleWarning = mostRecentFetch != null && new Date(mostRecentFetch) < fiveHoursAgo
+
+    return NextResponse.json({ success: true, data: games, staleWarning })
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }

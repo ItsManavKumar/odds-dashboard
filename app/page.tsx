@@ -14,6 +14,7 @@ const SPORTS = [
   { key: "soccer_spain_la_liga", label: "La Liga" },
   { key: "soccer_italy_serie_a", label: "Serie A" },
   { key: "soccer_uefa_champs_league", label: "UCL" },
+  { key: "soccer_fifa_world_cup", label: "World Cup" },
 ];
 
 export default function Home() {
@@ -23,6 +24,7 @@ export default function Home() {
   const [chartData, setChartData] = useState([]);
   const [selectedSport, setSelectedSport] = useState("aussierules_afl");
   const [search, setSearch] = useState("");
+  const [staleWarning, setStaleWarning] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -33,6 +35,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((d) => {
         setGames(d.data);
+        setStaleWarning(d.staleWarning ?? false);
         setLoading(false);
       });
   }, [selectedSport]);
@@ -115,6 +118,13 @@ export default function Home() {
           onChange={setSearch}
           placeholder="Search teams..."
         />
+
+        {/* Stale data warning */}
+        {staleWarning && !loading && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-yellow-900/40 border border-yellow-700 text-yellow-300 text-sm">
+            Odds data may be outdated — the last update was more than 2 hours ago.
+          </div>
+        )}
 
         {/* Games */}
         {loading ? (

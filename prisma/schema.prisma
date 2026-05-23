@@ -19,4 +19,7 @@ model OddsSnapshot {
   awayOdds      Float
   drawOdds      Float?
   fetchedAt     DateTime @default(now())
+
+  @@index([sport, commenceTime])
+  @@index([fetchedAt])
 }

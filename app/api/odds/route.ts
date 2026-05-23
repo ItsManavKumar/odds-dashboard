@@ -17,6 +17,7 @@ const SPORTS = [
   { key: "soccer_spain_la_liga", region: "eu" },
   { key: "soccer_italy_serie_a", region: "eu" },
   { key: "soccer_uefa_champs_league", region: "eu" },
+  { key: "soccer_fifa_world_cup", region: "eu" },
 ];
 
 export async function GET() {
@@ -74,7 +75,13 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, saved: true, totalSaved });
+    // Keep 30 days of history for the line movement chart, then purge
+    const cleanupCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const { count: deleted } = await prisma.oddsSnapshot.deleteMany({
+      where: { commenceTime: { lt: cleanupCutoff } },
+    });
+
+    return NextResponse.json({ success: true, saved: true, totalSaved, deleted });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message },
