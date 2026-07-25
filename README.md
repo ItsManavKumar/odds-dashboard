@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Odds Dashboard
+
+A live sports betting odds dashboard built with Next.js. It pulls head-to-head (h2h) odds from [The Odds API](https://the-odds-api.com/), stores snapshots in Postgres, and displays the best available prices across bookmakers with historical line movement charts.
+
+## Features
+
+- **Live odds board** across AFL, NRL, EPL, La Liga, Serie A, UCL, and the FIFA World Cup
+- **Best price highlighting** — automatically surfaces the best home/away odds across all tracked bookmakers
+- **Line movement charts** showing how odds have shifted over time for a selected game
+- **Team search** to quickly filter games by team name
+- **Stale data warning** if odds haven't refreshed recently (cron failure detection)
+- **Automatic history pruning** — snapshots older than 30 days are purged; the dashboard shows games from the last 7 days so it isn't empty right after a data reset
+- Mobile-responsive UI
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org/) (App Router) + React 19
+- [Prisma 7](https://www.prisma.io/) with the `pg` adapter, targeting PostgreSQL
+- [Recharts](https://recharts.org/) for line movement visualization
+- [Tailwind CSS 4](https://tailwindcss.com/)
+- [Axios](https://axios-http.com/) for calling The Odds API
+- [date-fns](https://date-fns.org/) / [date-fns-tz](https://github.com/marnusw/date-fns-tz) for date formatting
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 18+
+- A PostgreSQL database
+- An API key from [The Odds API](https://the-odds-api.com/)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Install dependencies:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   ```
 
-## Learn More
+2. Create a `.env` file in the project root with:
 
-To learn more about Next.js, take a look at the following resources:
+   ```env
+   DATABASE_URL=postgresql://user:password@host:port/dbname
+   ODDS_API_KEY=your_odds_api_key
+   CRON_SECRET=some_random_secret
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Run Prisma migrations to set up the database schema:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npx prisma migrate deploy
+   ```
 
-## Deploy on Vercel
+4. Start the dev server:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
+
+## How It Works
+
+- **`GET /api/odds`** — fetches current h2h odds for all tracked sports from The Odds API and saves a snapshot per bookmaker/game to Postgres. Also purges snapshots for games that commenced more than 30 days ago.
+- **`GET /api/markets?sport=<sport_key>`** — returns the latest games and bookmaker odds for a given sport (last 7 days), including a `staleWarning` flag if the most recent fetch is more than 5 hours old.
+- **`GET /api/history?home=<team>&away=<team>`** — returns the full odds snapshot history for a specific matchup, used to render the line movement chart.
+- **`GET /api/cron`** — protected endpoint (requires `Authorization: Bearer <CRON_SECRET>`) that triggers `/api/odds` on a schedule. Intended to be called by an external scheduler (e.g. [cron-job.org](https://cron-job.org/)) to periodically refresh odds data.
+
+## Database Schema
+
+Odds are stored in a single `OddsSnapshot` table (see [prisma/schema.prisma](prisma/schema.prisma)), with one row per bookmaker/market snapshot per game, indexed by sport/commence time and fetch time for efficient querying.
+
+## Scripts
+
+| Command         | Description                     |
+| --------------- | -------------------------------- |
+| `npm run dev`   | Start the development server     |
+| `npm run build` | Build for production             |
+| `npm run start` | Start the production server      |
+| `npm run lint`  | Run ESLint                       |
