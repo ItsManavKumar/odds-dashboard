@@ -18,18 +18,49 @@ interface Props {
   awayTeam: string
 }
 
-// Shorten team name to last word for legend on mobile
-const shortName = (name: string) => name.split(' ').pop() ?? name
+const TZ = 'Australia/Sydney'
 
 export default function LineMovementChart({ data, homeTeam, awayTeam }: Props) {
   if (data.length === 0) return null
 
+  // Convert decimal odds to implied probability so both teams sit on a
+  // comparable 0-100 scale instead of a heavy favourite's odds being
+  // unreadable next to a long-shot's on a shared linear odds axis
+  const chartData = data.map((d) => ({
+    ...d,
+    homeProb: 100 / d.homeOdds,
+    awayProb: 100 / d.awayOdds,
+  }))
+
   // Thin out x-axis ticks so they don't overlap on small screens
-  const tickCount = Math.min(6, data.length)
-  const step = Math.max(1, Math.floor(data.length / tickCount))
-  const ticks = data
+  const tickCount = Math.min(6, chartData.length)
+  const step = Math.max(1, Math.floor(chartData.length / tickCount))
+  const ticks = chartData
     .filter((_, i) => i % step === 0)
     .map((d) => d.fetchedAt)
+
+  // Pick a tick format based on how much time the data actually spans.
+  // Over multiple days, "HH:mm" renders every tick as 00:00 and tells
+  // you nothing; over a few hours, a date-only label is equally useless.
+  const spanHours =
+    (new Date(chartData[chartData.length - 1].fetchedAt).getTime() -
+      new Date(chartData[0].fetchedAt).getTime()) /
+    3_600_000
+  const xTickFormat =
+    spanHours > 48 ? 'd MMM' : spanHours > 12 ? 'd MMM ha' : 'HH:mm'
+
+  // Build the y-axis domain and ticks explicitly, snapped to 5% steps.
+  // A fixed [0, 100] domain wastes most of the chart when both lines sit
+  // in a narrow band, flattening real line movement into a straight line —
+  // but letting Recharts auto-generate ticks off a padded domain produces
+  // uneven labels (31.25, 37.5...), so both are computed here.
+  const probs = chartData.flatMap((d) => [d.homeProb, d.awayProb])
+  const yLo = Math.max(0, Math.floor((Math.min(...probs) - 2) / 5) * 5)
+  const yHi = Math.min(100, Math.ceil((Math.max(...probs) + 2) / 5) * 5)
+  const yTicks = Array.from(
+    { length: Math.round((yHi - yLo) / 5) + 1 },
+    (_, i) => yLo + i * 5
+  )
 
   return (
     <div className="mt-6 border-t border-gray-800 pt-4">
@@ -37,22 +68,24 @@ export default function LineMovementChart({ data, homeTeam, awayTeam }: Props) {
         Line Movement — {homeTeam} vs {awayTeam}
       </p>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
+        <LineChart data={chartData} margin={{ left: 0, right: 8, top: 4, bottom: 0 }}>
           <XAxis
             dataKey="fetchedAt"
             ticks={ticks}
             tickFormatter={(val) =>
-              format(new Date(val), 'HH:mm', { timeZone: 'Australia/Sydney' })
+              format(new Date(val), xTickFormat, { timeZone: TZ })
             }
             stroke="#6b7280"
             tick={{ fontSize: 10 }}
             interval={0}
           />
           <YAxis
-            domain={['auto', 'auto']}
+            domain={[yLo, yHi]}
+            ticks={yTicks}
+            tickFormatter={(val) => `${val}%`}
             stroke="#6b7280"
             tick={{ fontSize: 10 }}
-            width={36}
+            width={46}
           />
           <Tooltip
             contentStyle={{
@@ -61,27 +94,27 @@ export default function LineMovementChart({ data, homeTeam, awayTeam }: Props) {
               fontSize: 12,
             }}
             labelFormatter={(val) =>
-              format(new Date(val), 'EEE d MMM, h:mm a', {
-                timeZone: 'Australia/Sydney',
-              })
+              format(new Date(val), 'EEE d MMM, h:mm a', { timeZone: TZ })
             }
+            formatter={(value: any, name: any, entry: any) => {
+              const rawOdds =
+                entry.dataKey === 'homeProb'
+                  ? entry.payload.homeOdds
+                  : entry.payload.awayOdds
+              return [`${rawOdds.toFixed(2)} (${Number(value).toFixed(1)}%)`, name]
+            }}
           />
-          <Legend
-            formatter={(value) =>
-              value === homeTeam ? shortName(homeTeam) : shortName(awayTeam)
-            }
-            wrapperStyle={{ fontSize: 11 }}
-          />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
           <Line
             type="monotone"
-            dataKey="homeOdds"
+            dataKey="homeProb"
             stroke="#4ade80"
             dot={false}
             name={homeTeam}
           />
           <Line
             type="monotone"
-            dataKey="awayOdds"
+            dataKey="awayProb"
             stroke="#60a5fa"
             dot={false}
             name={awayTeam}
